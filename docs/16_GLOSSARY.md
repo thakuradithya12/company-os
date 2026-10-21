@@ -1,0 +1,21 @@
+# 16 — Glossary
+
+- **Acceptance criteria:** Verifiable conditions that must pass before a result or work package is considered complete.
+- **Agent:** A software-controlled AI execution component with a defined role, instructions, tools, limits, state, and output contract. It is not an independent authority.
+- **Capability:** A registered unit of work the runtime can route to. A capability may be implemented by a dedicated agent, a shared runtime configuration, deterministic code, or an external service; this distinction is decided during workforce classification.
+- **Checkpoint:** Persisted workflow state that enables inspection or safe resumption after interruption.
+- **Company memory:** Persisted, scoped knowledge, experiences, or procedures that can be retrieved across tasks under provenance and access rules.
+- **Evidence:** Source records, test results, provider confirmations, artifact checksums, or audit events that support a claim or action outcome.
+- **Founder:** The project owner who defines strategy, policies, budgets, and final approval authority.
+- **Human-in-the-loop:** A workflow pause requiring an authorized person to inspect a proposed action/result and approve, reject, or modify it.
+- **Idempotency:** A property where repeating the same command does not create duplicate effects; external providers may not always support it, so reconciliation is sometimes necessary.
+- **Integration:** A typed and permissioned adapter connecting Company OS to an external provider, source, or service.
+- **Lead / prospect:** A business or potential customer recorded as an opportunity for evaluation, not proof of intent to purchase.
+- **Orchestrator:** The workflow coordinator that decomposes objectives, delegates tasks, tracks dependencies, and aggregates results while enforcing policy through the runtime.
+- **Policy gate:** A deterministic permission/approval check that can allow, deny, or require approval for an action.
+- **Provenance:** Information about where a fact, file, memory item, or output came from and how it was produced or verified.
+- **Release gate:** A predefined, evidence-based set of conditions that must pass before work advances or a feature is enabled.
+- **Source of truth:** The authoritative persisted record for a domain; for Company OS, PostgreSQL is the proposed canonical record store.
+- **Task:** A durable unit of work with an objective, owner/capability, state, dependencies, attempt history, acceptance criteria, and output/evidence references.
+- **Unknown external outcome:** A situation where a communication or other external side effect may have occurred but the system cannot confirm the result; automatic retry is blocked until reconciliation.
+- **Work package:** A small, scoped, version-controlled implementation or documentation unit with explicit inputs, outputs, owner, tests, and exit criteria.
