@@ -101,5 +101,5 @@ Generated code, downloaded files, web content, and customer attachments are untr
 - One canonical database initially.
 - One execution contract used by every role.
 - Do not create one web app, database, or model service per agent.
-- Agent count and role classification are deliberately deferred to a later documented decision.
+- The proposed role count and classification are documented in `17_AGENT_CLASSIFICATION.md`; founder approval is pending. The architecture remains role-count agnostic and uses one shared execution contract.
 - No production external calls, public publication, money movement, contract acceptance, or live deployment before their release gates pass.

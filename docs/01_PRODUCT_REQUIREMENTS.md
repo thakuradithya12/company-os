@@ -20,7 +20,7 @@ Company OS is a web control plane for a founder-directed AI workforce. It combin
 
 1. **Command interface:** Natural-language request intake, clarification when a material requirement is missing, task creation, and final reporting.
 2. **Work orchestration:** Plans, tasks, dependencies, queues, task state, cancellation, retries, checkpoints, and recovery.
-3. **Workforce registry:** A catalog of approved roles/capabilities, instructions, tools, access scopes, model settings, and status. The actual count and classification are deferred to the planned workforce-definition phase.
+3. **Workforce registry:** A catalog of approved roles/capabilities, instructions, tools, access scopes, model settings, and status. The proposed initial classification is in `17_AGENT_CLASSIFICATION.md` and remains pending founder approval.
 4. **Memory and knowledge:** Short-term execution state, long-term company knowledge, reusable procedures, customer context, decision history, and evidence provenance.
 5. **Research and niche intelligence:** Source collection, normalization, deduplication, relevance ranking, verification, summary writing, and controlled distribution.
 6. **Opportunity and CRM:** Public-business research, prospect qualification, website audit findings, lead history, communication preferences, and follow-up eligibility.

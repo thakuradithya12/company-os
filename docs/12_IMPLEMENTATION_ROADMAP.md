@@ -4,17 +4,17 @@
 
 Work must proceed in the order below. The agent classification phase is not to be skipped or preempted. Each phase has a written start condition, deliverables, tests, and exit decision.
 
-### Phase 0 — Project documentation (current)
+### Phase 0 — Project documentation (baseline published; founder requested commencement of Phase 1)
 Deliver: approved project charter, requirements, architecture, workflow contracts, data/memory model, security policy, dashboard and API requirements, integration plan, acceptance tests, operations plan, roadmap, decision log, and traceability matrix.
 
 Exit gate: all documents are cross-consistent; deferred decisions are clearly identified; docs are version-controlled and pushed to the designated repository; founder accepts the documentation baseline.
 
-### Phase 1 — Agent inventory and classification
-Only after Phase 0 passes, define the real number of agents/capabilities required. Identify shared responsibilities, separate roles, specialist capabilities, routing rules, dependencies, memory scopes, authority levels, evaluation requirements, and resource constraints. Do not implement agent-specific behavior during the current documentation phase.
+### Phase 1 — Agent inventory and classification (proposal drafted; approval pending)
+The initial classification proposal and eight role-specification drafts are recorded in `docs/17_AGENT_CLASSIFICATION.md` and `docs/agent-specs/`. They are proposals, not implementation authorization. Review every role, boundary, permission, memory scope, dependency, build order, and evaluation. Revise them based on founder feedback.
 
-Deliver: approved role inventory, capability matrix, dependency map, role specifications using the template, and role-by-role build order.
+Deliver: founder-approved role inventory, capability matrix, dependency map, role specifications, and role-by-role build order.
 
-Exit gate: no duplicate/unowned responsibilities, each role has a measurable purpose and test plan, permissions are assigned, and the founder approves the classification.
+Exit gate: no duplicate/unowned responsibilities, each approved role has a measurable purpose and test plan, permissions are assigned, required numeric budgets/schemas are scheduled for pinning before implementation, and the founder explicitly approves the classification. Until then, do not begin Phase 2.
 
 ### Phase 2 — Repository bootstrap and engineering foundation
 Create the application monorepo structure, dependency/lock files, CI, environment validation, database migrations, health checks, lint/type checks, and repeatable local setup.

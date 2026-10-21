@@ -58,9 +58,9 @@ Agents are system components, not trusted principals. Each must act through a re
 - Website and digital deliverable production, testing, preview, and controlled delivery.
 - Auditability, observability, security, and deployment operations.
 
-### Out of scope for documentation stage
-- Selecting the exact number of agents.
-- Final classification of agent roles or deciding which agents are separate versus capabilities of a shared runtime.
+### Out of scope for the Phase 0 documentation baseline
+- Application implementation and enabling production actions before their release gates.
+- Claiming the proposed Phase 1 workforce classification is approved before the founder reviews it. The current proposal is in `docs/17_AGENT_CLASSIFICATION.md`.
 - Production code, UI implementation, telephony setup, public deployment, or automatic outbound campaigns.
 - Claiming legal compliance without reviewing the applicable current rules and provider terms.
 - Fully autonomous execution of all possible work without human oversight.

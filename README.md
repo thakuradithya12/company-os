@@ -2,8 +2,8 @@
 
 - **Project type:** Founder-controlled, AI-operated online company platform
 - **Documentation status:** Draft baseline — prepared before implementation
-- **Current stage:** Documentation and architecture definition only
-- **Agent count / role classification:** Intentionally deferred to the next phase
+- **Current stage:** Phase 1 workforce-classification proposal; no application implementation
+- **Agent count / role classification:** Proposed as 8 logical roles in `docs/17_AGENT_CLASSIFICATION.md`; founder approval is pending
 
 ## Vision
 
@@ -14,7 +14,7 @@ The product is not just a chatbot or a static website. It includes an orchestrat
 ## Documentation rules
 
 1. These documents define requirements and proposed architecture. They do not authorize implementation beyond the current phase.
-2. The exact number of agents and the classification of agent roles are **not decided here**. That is a separate, explicitly planned next phase.
+2. The exact number and classification of agent roles are proposed in `docs/17_AGENT_CLASSIFICATION.md`; the proposal is not approved until the founder explicitly accepts or revises it.
 3. Work is sequential: do not advance to the next agent or work package while the current one has open blocking bugs, missing acceptance evidence, or unresolved required deliverables.
 4. A feature is not complete because a model says it is complete. Completion requires observable evidence and passing acceptance criteria.
 5. No system can guarantee perfect performance on every task. The engineering objective is measurable reliability, bounded execution, visible uncertainty, safe recovery, and independent verification.
@@ -41,8 +41,11 @@ Read in order:
 15. [Requirements traceability](docs/14_TRACEABILITY_MATRIX.md)
 16. [Company operating model](docs/15_COMPANY_OPERATING_MODEL.md)
 17. [Glossary](docs/16_GLOSSARY.md)
+18. [Agent workforce classification proposal](docs/17_AGENT_CLASSIFICATION.md)
 
-Templates for the later workforce-classification phase are in [`docs/templates/`](docs/templates/). They are blank templates, not an agent list.
+Proposed role specifications (not approved/implemented): [`docs/agent-specs/`](docs/agent-specs/).
+
+Reusable blank templates for future agent/capability and integration specifications are in [`docs/templates/`](docs/templates/). They do not override the proposed role specifications.
 
 ## Proposed baseline technology
 
@@ -52,7 +55,7 @@ Technology names are implementation candidates, not a reason to change requireme
 
 ## Status and repository policy
 
-This repository is documentation-only at this stage. Do not add application code, choose the final agent count, or enable external execution as part of documentation completion. Record meaningful changes in the decision log. Keep secrets, client personal data, call recordings, credentials, and real prospect lists out of Git.
+This repository remains documentation-only. The proposed classification is documented but not yet founder-approved. Do not implement any role or enable external execution until the founder approves the classification and the repository roadmap prerequisites pass. Record meaningful changes in the decision log. Keep secrets, client personal data, call recordings, credentials, and real prospect lists out of Git.
 
 ## Official technical and governance references
 

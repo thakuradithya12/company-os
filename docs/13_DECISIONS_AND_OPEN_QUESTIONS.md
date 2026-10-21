@@ -17,7 +17,7 @@ This file separates the current baseline from items intentionally deferred. Do n
 ### D-003 — Agent classification is separate
 - **Decision:** Do not fix the final number or exact role split during documentation. Perform a dedicated workforce inventory/classification phase after the documents are accepted.
 - **Reason:** The founder explicitly requires classification to occur after documentation.
-**Status:** Deferred to Phase 1.
+**Status:** Sequencing rule fulfilled. Phase 1 proposal is now documented in `docs/17_AGENT_CLASSIFICATION.md`; founder approval remains pending.
 
 ### D-004 — Sequential work acceptance
 - **Decision:** Do not move to the next agent/work package when the current one has pending required deliverables, failing acceptance tests, or unresolved blocking defects.
@@ -54,6 +54,15 @@ This file separates the current baseline from items intentionally deferred. Do n
 - **Reason:** Reliability must be measurable and honest.
 **Status:** Baseline accepted.
 
+
+### D-011 — Proposed initial workforce classification (founder approval pending)
+- **Proposal:** Start with eight logical roles: Founder Command & Intake; Planning & Orchestration; Research & Evidence; Business Discovery & Website Audit; Content & Information Product; Client Acquisition & Deal; Digital Solution Builder; Independent Quality & Acceptance.
+- **Why eight:** These cover the distinct initial business workflows while keeping scheduling, policy enforcement, memory, CRM storage, telephony, monitoring, publishing, and delivery checklists as deterministic services/integrations rather than extra AI roles. Niche expertise should begin as reviewed skill packs where possible.
+- **Tradeoff:** A role count above eight may be justified later by evidence of distinct permission, lifecycle, data scope, or evaluation requirements. A smaller count may be chosen if the founder wants to merge boundaries after review.
+- **Safety constraints:** All roles use one runtime contract; external side effects are default-deny; calling/deal authority stays gated; AG-08 does not replace deterministic tests; implementation remains one role at a time after platform prerequisites pass.
+- **Reference:** `docs/17_AGENT_CLASSIFICATION.md` and `docs/agent-specs/`.
+- **Status:** Proposed only. Do not treat as approved until the founder explicitly accepts or revises it.
+
 ## 2. Open questions to resolve at their designated phase
 
 ### Before repository bootstrap
@@ -63,7 +72,7 @@ This file separates the current baseline from items intentionally deferred. Do n
 - Define local developer operating system support and the canonical quick-start path.
 
 ### During agent classification
-- What distinct roles are truly needed, and what should be a skill/tool versus a separate agent?
+- Does the founder accept or revise the eight-role proposal in `docs/17_AGENT_CLASSIFICATION.md`, including each skill/tool versus separate-role boundary?
 - Which roles can share a runtime/model, and which require different models or execution environments?
 - Which capabilities can run in parallel and which must be sequential?
 - What is the exact owner, input/output schema, memory scope, tool allowlist, and test suite for each role?
