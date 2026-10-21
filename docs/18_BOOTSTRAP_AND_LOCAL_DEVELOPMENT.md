@@ -83,7 +83,7 @@ docker compose up --build
 
 Open the web shell at <http://localhost:3000>. API liveness is at <http://localhost:8000/health/live>; database-backed readiness is at <http://localhost:8000/health/ready>.
 
-Compose binds the web, API, and PostgreSQL ports to loopback only. The default Postgres credentials are for local development only. Never expose this stack publicly or reuse these credentials in staging/production.
+Compose binds the web, API, and PostgreSQL ports to loopback only. PostgreSQL is exposed on host port `55432` by default while remaining on port `5432` inside the Compose network, to avoid colliding with an existing host PostgreSQL service. The default Postgres credentials are for local development only. Never expose this stack publicly or reuse these credentials in staging/production.
 
 To stop services without deleting the database volume:
 
@@ -102,6 +102,7 @@ docker compose down
 | `COMPANY_OS_DATABASE_URL` | SQLAlchemy database URL | Required for full readiness; PostgreSQL uses `postgresql+psycopg://...` |
 | `COMPANY_OS_APP_SECRET_KEY` | Reserved application secret for future signed/session capabilities | Required outside development/test and at least 32 characters; never print or commit it |
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | Local Compose database setup | Development-only values in `.env.example` |
+| `COMPANY_OS_POSTGRES_HOST_PORT` | Host port for local Compose PostgreSQL | Defaults to `55432` to avoid conflicting with a PostgreSQL service already using `5432`; Compose still uses port `5432` internally |
 
 The API can start with no database URL so process liveness remains separately observable, but readiness returns HTTP 503 until a database is configured and reachable. `python -m company_os.config_check` validates whether full-stack configuration is present without printing secret values.
 
@@ -126,6 +127,12 @@ The API can start with no database URL so process liveness remains separately ob
 - [ ] No agent behaviors, CRM workflows, outbound calls, public deployment, authentication, or business actions were implemented in this phase.
 - [ ] All required checks have been run; any failure is fixed before the work package is accepted.
 
-## Known current limitation
+## Native command failure handling
 
-During authoring in the assistant's isolated environment, Docker was unavailable, package-registry access did not complete reliably, and the installed uv 0.10.0 could not provision Python 3.13.16. The backend source tests were run with the preinstalled Python environment; the Windows bootstrap script requires uv 0.13.4 or newer, generates the real lockfiles, installs locked dependencies, and performs the full reproducible checks before the change is pushed. The Phase 2 gate must not be declared passed until those package-manager, frontend build, PostgreSQL migration, and Compose checks have actually passed on the developer machine/CI.
+The PowerShell scripts explicitly check the exit code of every native tool they invoke (`uv`, `npm`, `docker`, and related commands). This is required because a failed native executable is not consistently treated as a terminating PowerShell error across Windows PowerShell 5.1 and PowerShell 7 configurations. The bootstrap must stop immediately on a non-zero exit code and must never print the success message after a failed command.
+
+When `-WithDockerDatabase` is used, the script first verifies that the Docker Engine is reachable, then starts the Compose database and waits for its readiness check before invoking Alembic. If Docker cannot start the database, migration is not attempted against an unrelated PostgreSQL server listening on the host's port 5432.
+
+## Validation status and limitations
+
+The founder's Windows run confirmed that Python dependency resolution, lockfile generation, seven backend tests, frontend type checking, and the Next.js production build passed. The optional PostgreSQL migration gate did not pass because Docker Desktop's Linux engine was unavailable; the old script then attempted to connect to a different PostgreSQL service on localhost and received a password-authentication error. That run must be treated as failed. The native exit-code checks, Docker preflight, database readiness wait, and default host-port mapping above correct the false-positive success behavior and reduce the risk of contacting an unrelated local PostgreSQL service. Re-run the complete bootstrap, Docker migration, Compose startup, and GitHub Actions checks before declaring Phase 2 accepted.

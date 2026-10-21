@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-company_os_dev_only}
       POSTGRES_DB: ${POSTGRES_DB:-company_os}
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:${COMPANY_OS_POSTGRES_HOST_PORT:-55432}:5432"
     volumes:
       - company-os-postgres:/var/lib/postgresql/data
     healthcheck:

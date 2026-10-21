@@ -42,3 +42,6 @@ coverage.xml
 junit.xml
 playwright-report/
 test-results/
+
+# Generated TypeScript compiler metadata
+*.tsbuildinfo
