@@ -1,0 +1,88 @@
+name: Company OS CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  foundation:
+    name: Foundation checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: company_os
+          POSTGRES_PASSWORD: ci_only_password
+          POSTGRES_DB: company_os
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U company_os -d company_os"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      COMPANY_OS_ENVIRONMENT: test
+      COMPANY_OS_LOG_LEVEL: INFO
+      COMPANY_OS_DATABASE_URL: postgresql+psycopg://company_os:ci_only_password@localhost:5432/company_os
+      PYTHONPATH: apps/api/src
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Install Python
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: .python-version
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10
+        with:
+          version: "0.13.4"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Verify lockfile is current
+        run: uv lock --check
+
+      - name: Install locked Python dependencies
+        run: uv sync --locked --python 3.13.16 --group dev
+
+      - name: Python lint
+        run: uv run --locked ruff check apps/api/src apps/api/tests
+
+      - name: Python tests
+        run: uv run --locked pytest
+
+      - name: Apply database migration baseline
+        run: uv run --locked alembic upgrade head
+
+      - name: Install Node.js 24 LTS
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install locked frontend dependencies
+        working-directory: apps/web
+        run: npm ci --no-audit --no-fund
+
+      - name: Frontend type check
+        working-directory: apps/web
+        run: npm run typecheck
+
+      - name: Frontend production build
+        working-directory: apps/web
+        run: npm run build
+
+      - name: Validate Compose configuration
+        run: docker compose config --quiet

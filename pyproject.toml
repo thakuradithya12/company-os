@@ -1,0 +1,41 @@
+[project]
+name = "company-os"
+version = "0.1.0"
+description = "Founder-controlled AI company platform foundation"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "alembic>=1.20,<2.0",
+    "fastapi>=0.156.4,<0.157",
+    "psycopg[binary]>=3.2,<4.0",
+    "pydantic-settings>=2.12,<3.0",
+    "python-dotenv>=1.1,<2.0",
+    "sqlalchemy>=2.0.55,<2.1",
+    "uvicorn[standard]>=0.35,<1.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28,<1.0",
+    "pytest>=9.0,<10.0",
+    "ruff>=0.17.1,<0.18",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+pythonpath = ["apps/api/src"]
+testpaths = ["apps/api/tests"]
+addopts = "-ra"
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+src = ["apps/api/src", "apps/api/tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

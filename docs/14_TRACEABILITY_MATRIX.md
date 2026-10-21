@@ -25,7 +25,32 @@ This matrix links core requirements to the documentation and future validation. 
 | Producer/verifier separation | AG-08 specification; `10_TESTING_AND_ACCEPTANCE.md` | AC-CL-05; failed criterion cannot pass through model narrative alone |
 | Sequential role implementation | `12_IMPLEMENTATION_ROADMAP.md` | One role-specific release gate and Git checkpoint at a time |
 
-Phase 1 remains open until the founder explicitly approves or revises the proposed inventory and build order. A drafted role specification is not evidence that the role is implemented.
+Phase 1 classification is accepted: the founder approved the eight-role inventory on 2026-10-21. The roles remain unimplemented; platform/runtime gates and per-role acceptance tests still apply.
+
+## Phase 1 classification acceptance
+
+- [x] Eight logical role boundaries approved by the founder on 2026-10-21.
+- [x] Per-role specifications are present and use the shared runtime contract.
+- [x] Deterministic platform services are not misclassified as independent agents.
+- [x] External authority and sequential build gates are explicit.
+
+## Phase 2 bootstrap acceptance
+
+| Check ID | Required evidence | Current state |
+|---|---|---|
+| BOOT-001 | Root monorepo structure and Python/frontend dependency manifests exist | Implemented locally; locks still pending |
+| BOOT-002 | `uv.lock` is generated and `uv lock --check` passes | Pending developer package-registry access |
+| BOOT-003 | `apps/web/package-lock.json` is generated and `npm ci` passes on Node 24 | Pending developer package-registry access and Node 24 verification |
+| BOOT-004 | Environment validation does not print secrets | Implemented; covered by configuration behavior and review |
+| BOOT-005 | API liveness works without a database; readiness returns 503 without a configured DB | Backend tests passed locally |
+| BOOT-006 | API readiness succeeds when a test database answers `SELECT 1` | Backend tests passed locally with SQLite test connection |
+| BOOT-007 | PostgreSQL Alembic baseline executes in CI/local Docker environment | Pending PostgreSQL service execution |
+| BOOT-008 | Ruff, Pytest, TypeScript check, and Next production build pass | Pytest passed locally; remaining locked checks pending |
+| BOOT-009 | Compose configuration parses and full stack starts | YAML syntax parsed; Docker unavailable in authoring environment, full compose run pending |
+| BOOT-010 | GitHub Actions workflow runs the locked verification sequence | Workflow authored; CI run pending push |
+| BOOT-011 | No agent behavior or business-facing side-effect functionality is added during Phase 2 | In scope review: foundation only |
+
+Phase 2 is not accepted until all required checks above are completed and their evidence is attached to the Git checkpoint. A pending check is not a pass.
 
 ## Phase 0 documentation acceptance
 

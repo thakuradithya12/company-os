@@ -12,12 +12,12 @@ This file separates the current baseline from items intentionally deferred. Do n
 ### D-002 — Documentation before implementation
 - **Decision:** Complete and version-control the project documents before building application features.
 - **Reason:** Reduces scope drift and makes acceptance criteria explicit.
-**Status:** Current phase.
+**Status:** Accepted; the documentation baseline was published before workforce classification.
 
 ### D-003 — Agent classification is separate
 - **Decision:** Do not fix the final number or exact role split during documentation. Perform a dedicated workforce inventory/classification phase after the documents are accepted.
 - **Reason:** The founder explicitly requires classification to occur after documentation.
-**Status:** Sequencing rule fulfilled. Phase 1 proposal is now documented in `docs/17_AGENT_CLASSIFICATION.md`; founder approval remains pending.
+**Status:** Sequencing rule fulfilled. The eight-role classification was approved by the founder on 2026-10-21; implementation remains gated.
 
 ### D-004 — Sequential work acceptance
 - **Decision:** Do not move to the next agent/work package when the current one has pending required deliverables, failing acceptance tests, or unresolved blocking defects.
@@ -55,28 +55,38 @@ This file separates the current baseline from items intentionally deferred. Do n
 **Status:** Baseline accepted.
 
 
-### D-011 — Proposed initial workforce classification (founder approval pending)
+### D-011 — Initial workforce classification (founder approved 2026-10-21)
 - **Proposal:** Start with eight logical roles: Founder Command & Intake; Planning & Orchestration; Research & Evidence; Business Discovery & Website Audit; Content & Information Product; Client Acquisition & Deal; Digital Solution Builder; Independent Quality & Acceptance.
 - **Why eight:** These cover the distinct initial business workflows while keeping scheduling, policy enforcement, memory, CRM storage, telephony, monitoring, publishing, and delivery checklists as deterministic services/integrations rather than extra AI roles. Niche expertise should begin as reviewed skill packs where possible.
 - **Tradeoff:** A role count above eight may be justified later by evidence of distinct permission, lifecycle, data scope, or evaluation requirements. A smaller count may be chosen if the founder wants to merge boundaries after review.
 - **Safety constraints:** All roles use one runtime contract; external side effects are default-deny; calling/deal authority stays gated; AG-08 does not replace deterministic tests; implementation remains one role at a time after platform prerequisites pass.
 - **Reference:** `docs/17_AGENT_CLASSIFICATION.md` and `docs/agent-specs/`.
-- **Status:** Proposed only. Do not treat as approved until the founder explicitly accepts or revises it.
+- **Status:** Approved classification baseline. Individual role implementation remains gated by platform readiness and its own accepted work package.
+
+
+### D-012 — Phase 2 engineering foundation scope
+- **Decision:** Establish the monorepo, lockfile generation, configuration validation, minimal health/readiness API, migration scaffold, minimal web shell, CI, and repeatable PowerShell setup before any agent implementation.
+- **Reason:** The founder requires sequential work, an auditable baseline, and no agent development before platform prerequisites are verified.
+- **Constraints:** Domain migrations remain intentionally empty in this phase; the web shell must not display fabricated live agent metrics; production side effects remain disabled.
+- **Status:** Approved scope for Phase 2.
+
+### D-013 — Runtime baseline versions
+- **Decision:** Target Python 3.13.16, Node.js 24 LTS, Next.js 16.4.2, and React/React DOM 19.3.1 for the bootstrap baseline. Pin uv 0.13.4 or newer as the bootstrap tool; 0.13.4 includes an update to bundled root certificates released on 2026-10-20. Python dependencies use a checked-in `uv.lock`; frontend dependencies use a checked-in `apps/web/package-lock.json` generated with Node 24/npm.
+- **Reason:** Target a supported Python minor and active Node LTS while using stable framework releases rather than canary packages. Transitive versions are resolved once and then locked by the package managers.
+- **Status:** Proposed implementation baseline; Phase 2 remains blocked until lockfiles are generated and all checks pass on a networked developer machine/CI.
 
 ## 2. Open questions to resolve at their designated phase
 
-### Before repository bootstrap
-- Confirm the GitHub repository owner/name and desired visibility.
-- Pin compatible package versions and agree on package manager/lockfile.
-- Choose concrete worker/broker configuration and deployment profile based on repeatable local tests.
-- Define local developer operating system support and the canonical quick-start path.
+### During repository bootstrap (Phase 2)
+- Generate and commit platform-specific transitive dependency lockfiles on a networked developer machine or trusted CI runner.
+- Verify Python/Node/Docker tool versions and the canonical Windows PowerShell quick-start.
+- Verify clean dependency sync, frontend production build, backend tests/lint, migration execution against PostgreSQL, and health endpoints.
+- Decide whether Compose is a required local path or an optional convenience after testing it on the founder workstation.
 
-### During agent classification
-- Does the founder accept or revise the eight-role proposal in `docs/17_AGENT_CLASSIFICATION.md`, including each skill/tool versus separate-role boundary?
-- Which roles can share a runtime/model, and which require different models or execution environments?
-- Which capabilities can run in parallel and which must be sequential?
-- What is the exact owner, input/output schema, memory scope, tool allowlist, and test suite for each role?
-- What is the authorized autonomy and escalation path for each role?
+### During agent implementation (after platform/runtime gates)
+- Which approved roles can share a runtime/model, and which require separate inference or execution environments based on evaluation?
+- What exact schema, memory scope, tool allowlist, and autonomy limits need further precision in each role contract before its work package begins?
+- What is the measured concurrency budget for the target hardware/provider?
 
 ### Before client communication is enabled
 - Which CRM and communication providers are approved?

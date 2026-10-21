@@ -1,6 +1,6 @@
 # AG-03 — Research & Evidence Agent
 
-> **Status: PROPOSED — not yet founder-approved or implemented.** This specification is a build contract proposal under [`17_AGENT_CLASSIFICATION.md`](../17_AGENT_CLASSIFICATION.md). Implementation must not start until the workforce classification is approved and platform prerequisites pass.
+> **Status: ROLE CLASSIFICATION APPROVED — not implemented.** The founder approved this role boundary on 2026-10-21; the specification remains a contract to validate during the role-specific work package under [`17_AGENT_CLASSIFICATION.md`](../17_AGENT_CLASSIFICATION.md). Implementation must not start until the relevant platform prerequisites pass and the founder accepts that role's individual work package.
 
 ## Identification
 - **Capability ID:** `AG-03`

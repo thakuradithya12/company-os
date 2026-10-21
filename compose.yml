@@ -1,0 +1,74 @@
+name: company-os
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-company_os}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-company_os_dev_only}
+      POSTGRES_DB: ${POSTGRES_DB:-company_os}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - company-os-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-company_os} -d ${POSTGRES_DB:-company_os}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+    restart: unless-stopped
+
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      COMPANY_OS_ENVIRONMENT: development
+      COMPANY_OS_LOG_LEVEL: INFO
+      COMPANY_OS_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-company_os}:${POSTGRES_PASSWORD:-company_os_dev_only}@db:5432/${POSTGRES_DB:-company_os}
+      PYTHONPATH: /app/apps/api/src
+    command: ["uv", "run", "--locked", "--no-sync", "alembic", "upgrade", "head"]
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      COMPANY_OS_ENVIRONMENT: development
+      COMPANY_OS_LOG_LEVEL: INFO
+      COMPANY_OS_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-company_os}:${POSTGRES_PASSWORD:-company_os_dev_only}@db:5432/${POSTGRES_DB:-company_os}
+      PYTHONPATH: /app/apps/api/src
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    environment:
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: "1"
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  company-os-postgres:

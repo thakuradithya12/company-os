@@ -4,22 +4,22 @@
 
 Work must proceed in the order below. The agent classification phase is not to be skipped or preempted. Each phase has a written start condition, deliverables, tests, and exit decision.
 
-### Phase 0 — Project documentation (baseline published; founder requested commencement of Phase 1)
-Deliver: approved project charter, requirements, architecture, workflow contracts, data/memory model, security policy, dashboard and API requirements, integration plan, acceptance tests, operations plan, roadmap, decision log, and traceability matrix.
+### Phase 0 — Project documentation (accepted)
+Deliverables: project charter, requirements, architecture, workflow contracts, data/memory model, security policy, dashboard and API requirements, integration plan, acceptance tests, operations plan, roadmap, decision log, and traceability matrix.
 
-Exit gate: all documents are cross-consistent; deferred decisions are clearly identified; docs are version-controlled and pushed to the designated repository; founder accepts the documentation baseline.
+Exit gate: passed. Documentation is committed and pushed; founder accepted the baseline before workforce classification.
 
-### Phase 1 — Agent inventory and classification (proposal drafted; approval pending)
-The initial classification proposal and eight role-specification drafts are recorded in `docs/17_AGENT_CLASSIFICATION.md` and `docs/agent-specs/`. They are proposals, not implementation authorization. Review every role, boundary, permission, memory scope, dependency, build order, and evaluation. Revise them based on founder feedback.
+### Phase 1 — Agent inventory and classification (accepted)
+The founder approved the eight-role classification in `docs/17_AGENT_CLASSIFICATION.md` on 2026-10-21. Individual role contracts are recorded in `docs/agent-specs/`. This closes classification; it does not mean any agent is implemented or enabled. Do not add or implement agent-specific behavior until the shared platform/runtime phases pass.
 
-Deliver: founder-approved role inventory, capability matrix, dependency map, role specifications, and role-by-role build order.
+Deliverables: approved role inventory, capability matrix, dependency map, role contracts, and sequential build order.
 
-Exit gate: no duplicate/unowned responsibilities, each approved role has a measurable purpose and test plan, permissions are assigned, required numeric budgets/schemas are scheduled for pinning before implementation, and the founder explicitly approves the classification. Until then, do not begin Phase 2.
+Exit gate: satisfied for the initial workforce. Any role split or merge requires a documented change proposal and founder approval.
 
-### Phase 2 — Repository bootstrap and engineering foundation
-Create the application monorepo structure, dependency/lock files, CI, environment validation, database migrations, health checks, lint/type checks, and repeatable local setup.
+### Phase 2 — Repository bootstrap and engineering foundation (current)
+Create the application monorepo structure, dependency/lock files, CI, environment validation, migration baseline, health checks, lint/type checks, and repeatable local setup. Keep the user-facing web page and API limited to the foundation status and health/readiness surfaces. Do not implement agent execution, agent prompts, business workflows, authentication, CRM, telephony, or production integrations.
 
-Exit gate: clean install and all baseline CI checks pass; no business agent features are accepted in this phase.
+Exit gate: clean locked dependency sync, backend lint/tests, frontend type check and production build, PostgreSQL migration, health endpoint behaviors, Compose configuration, and GitHub Actions checks all pass. Any check not run is still open; no agent feature is accepted in this phase.
 
 ### Phase 3 — Core platform before specialist agents
 Implement authentication, authorization, canonical task schema/state machine, audit events, durable worker dispatch, retries, cancellation, checkpoints, and live task updates.

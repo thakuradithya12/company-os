@@ -1,7 +1,7 @@
 # Contributing and Work-Completion Rules
 
 ## Current phase
-This repository is documentation-only. Do not add application implementation until the documentation phase is accepted and the workforce-classification phase has been completed and approved.
+Phase 2 is repository bootstrap and engineering foundation. Only scaffold, configuration, migration baseline, health checks, CI, tests, and repeatable local setup are in scope. Do not implement any agent behavior or business workflow until the platform/runtime phases are accepted.
 
 ## Required approach
 1. Read the relevant requirements, architecture, security rules, and decision log.

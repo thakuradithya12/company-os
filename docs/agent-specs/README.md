@@ -1,6 +1,6 @@
 # Proposed Agent Role Specifications
 
-These eight documents implement the proposed classification captured in [`../17_AGENT_CLASSIFICATION.md`](../17_AGENT_CLASSIFICATION.md). All are status `PROPOSED`; none authorizes implementation by itself.
+These eight documents define build-contract baselines for the founder-approved role classification in [`../17_AGENT_CLASSIFICATION.md`](../17_AGENT_CLASSIFICATION.md). The role boundaries are approved; implementation of every role remains gated by the shared platform/runtime phases and its individual acceptance package.
 
 1. [AG-01 Founder Command & Intake](AG-01_FOUNDER_COMMAND_INTAKE.md)
 2. [AG-02 Planning & Orchestration](AG-02_PLANNING_ORCHESTRATION.md)

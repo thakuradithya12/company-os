@@ -1,9 +1,9 @@
 # Company OS
 
 - **Project type:** Founder-controlled, AI-operated online company platform
-- **Documentation status:** Draft baseline — prepared before implementation
-- **Current stage:** Phase 1 workforce-classification proposal; no application implementation
-- **Agent count / role classification:** Proposed as 8 logical roles in `docs/17_AGENT_CLASSIFICATION.md`; founder approval is pending
+- **Documentation status:** Approved requirements and workforce classification; foundation bootstrap in progress
+- **Current stage:** Phase 2 repository bootstrap and engineering foundation
+- **Agent count / role classification:** Eight logical roles approved by the founder on 2026-10-21; implementation remains gated by the shared platform foundation
 
 ## Vision
 
@@ -14,7 +14,7 @@ The product is not just a chatbot or a static website. It includes an orchestrat
 ## Documentation rules
 
 1. These documents define requirements and proposed architecture. They do not authorize implementation beyond the current phase.
-2. The exact number and classification of agent roles are proposed in `docs/17_AGENT_CLASSIFICATION.md`; the proposal is not approved until the founder explicitly accepts or revises it.
+2. The eight logical agent roles in `docs/17_AGENT_CLASSIFICATION.md` were approved by the founder on 2026-10-21. Approval defines the roles; it does not mean the agents are implemented or enabled.
 3. Work is sequential: do not advance to the next agent or work package while the current one has open blocking bugs, missing acceptance evidence, or unresolved required deliverables.
 4. A feature is not complete because a model says it is complete. Completion requires observable evidence and passing acceptance criteria.
 5. No system can guarantee perfect performance on every task. The engineering objective is measurable reliability, bounded execution, visible uncertainty, safe recovery, and independent verification.
@@ -41,21 +41,22 @@ Read in order:
 15. [Requirements traceability](docs/14_TRACEABILITY_MATRIX.md)
 16. [Company operating model](docs/15_COMPANY_OPERATING_MODEL.md)
 17. [Glossary](docs/16_GLOSSARY.md)
-18. [Agent workforce classification proposal](docs/17_AGENT_CLASSIFICATION.md)
+18. [Approved agent workforce classification](docs/17_AGENT_CLASSIFICATION.md)
+19. [Bootstrap and local development](docs/18_BOOTSTRAP_AND_LOCAL_DEVELOPMENT.md)
 
-Proposed role specifications (not approved/implemented): [`docs/agent-specs/`](docs/agent-specs/).
+Approved role boundaries and their build-contract drafts: [`docs/agent-specs/`](docs/agent-specs/). The specifications do not mean any role has been implemented.
 
-Reusable blank templates for future agent/capability and integration specifications are in [`docs/templates/`](docs/templates/). They do not override the proposed role specifications.
+Reusable blank templates for future agent/capability and integration specifications are in [`docs/templates/`](docs/templates/).
 
 ## Proposed baseline technology
 
-The initial architecture recommendation is a TypeScript web frontend, Python API, PostgreSQL as the source of truth, an explicit durable worker mechanism, and a stateful agent-orchestration library. Local model execution should be supported through an adapter; hosted models can be optional later. Specific versions must be selected and locked during repository bootstrap after compatibility checks.
+The initial architecture recommendation is a TypeScript web frontend, Python API, PostgreSQL as the source of truth, an explicit durable worker mechanism, and a stateful agent-orchestration library. Local model execution should be supported through an adapter; hosted models can be optional later. The initial compatibility baseline is recorded in `docs/13_DECISIONS_AND_OPEN_QUESTIONS.md` and `docs/18_BOOTSTRAP_AND_LOCAL_DEVELOPMENT.md`; exact dependency resolution must be captured in `uv.lock` and `apps/web/package-lock.json`.
 
 Technology names are implementation candidates, not a reason to change requirements to suit a framework. See the decision log before changing a baseline choice.
 
 ## Status and repository policy
 
-This repository remains documentation-only. The proposed classification is documented but not yet founder-approved. Do not implement any role or enable external execution until the founder approves the classification and the repository roadmap prerequisites pass. Record meaningful changes in the decision log. Keep secrets, client personal data, call recordings, credentials, and real prospect lists out of Git.
+Phase 2 is limited to repository bootstrap and engineering foundation. Do not implement agent behavior, CRM workflows, authentication, client calling, or production actions in this phase. Follow the roadmap gates, record meaningful changes in the decision log, and keep secrets, client personal data, call recordings, credentials, and real prospect lists out of Git.
 
 ## Official technical and governance references
 

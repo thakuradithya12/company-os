@@ -1,10 +1,10 @@
-# 17 — Agent Workforce Classification (Proposal)
+# 17 — Approved Agent Workforce Classification
 
-> **Status: PROPOSED — founder review and approval required.** This document classifies the minimum initial workforce based on the published product requirements. It does not authorize application implementation. No agent is marked approved or implemented until the founder explicitly approves this classification and the required platform phases pass.
+> **Status: APPROVED CLASSIFICATION — founder approved on 2026-10-21.** The eight logical roles and their top-level responsibility boundaries are approved. This approval does not mean any role is implemented or enabled. Agent implementation remains blocked until the shared engineering foundation and each role-specific release gate pass.
 
 ## 1. Decision summary
 
-**Recommended initial workforce: 8 logical agent roles, implemented on one shared runtime.** The roles are not eight separate applications, databases, or always-running model servers. They are registered role configurations with distinct responsibilities, I/O contracts, permissions, memory scopes, and evaluations. The execution platform may create bounded task-specific instances as needed.
+**Approved initial workforce: 8 logical agent roles, implemented on one shared runtime.** The roles are not eight separate applications, databases, or always-running model servers. They are registered role configurations with distinct responsibilities, I/O contracts, permissions, memory scopes, and evaluations. The execution platform may create bounded task-specific instances as needed.
 
 This is a practical starting structure for the scope currently documented: founder command chat, planning and delegation, niche research, business opportunity discovery, content/resource production, client acquisition and deal support, digital deliverable production, and independent verification.
 
@@ -22,9 +22,9 @@ The count is deliberately smaller than an org chart of 17–20 job titles. Many 
 8. **Evidence and uncertainty.** Research claims and completed actions need traceable evidence. Unknown outcomes remain unknown until reconciled.
 9. **Sequential implementation.** After the founder approves this proposal, implement one role at a time in the approved order. A blocking defect or unmet acceptance criterion stops advancement.
 
-## 3. Proposed workforce inventory
+## 3. Approved workforce inventory
 
-| ID | Proposed role | Primary responsibility | Separate role because | Default external authority |
+| ID | Approved role | Primary responsibility | Separate role because | Default external authority |
 |---|---|---|---|---|
 | AG-01 | Founder Command & Intake Agent | Conversational interface to clarify the founder's intent and form a structured objective | Needs a stable conversational contract but must not have execution authority | None; reads status and creates a draft/approved work request through the API |
 | AG-02 | Planning & Orchestration Agent | Propose a plan, task breakdown, dependencies, and capability assignments | Planning is cross-company and must remain separate from any one producer | None directly; deterministic orchestration validates and executes the approved plan |
@@ -88,7 +88,7 @@ Founder
 
 This is a logical flow, not a commitment to run every step for every task. The planner selects only the capabilities needed by an objective. The deterministic task engine owns the authoritative state machine, dependency resolution and cancellation.
 
-## 7. Proposed role dependency and build order
+## 7. Approved role dependency and build order
 
 **Prerequisite before any role:** repository bootstrap, CI, authentication/authorization, PostgreSQL schema, task state machine, audit events, durable worker, recovery/cancellation, model adapter, tool gateway, memory interfaces, and generic verification pipeline must pass their roadmap gates. These platform work packages are not additional agents.
 
