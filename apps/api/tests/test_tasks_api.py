@@ -284,3 +284,54 @@ def test_security_limitation_caller_supplied_identity_recorded_as_metadata(
     )
     assert response.status_code == 201
     assert response.json()["created_by"] == arbitrary_caller_id
+
+
+def test_route_task_api_endpoint(client: TestClient) -> None:
+    create_res = client.post(
+        "/tasks",
+        json={
+            "objective": "Perform market research on cloud infrastructure",
+            "created_by": "founder:1",
+        },
+    )
+    assert create_res.status_code == 201
+    task_id = create_res.json()["id"]
+
+    route_res = client.post(f"/tasks/{task_id}/route")
+    assert route_res.status_code == 200
+    route_data = route_res.json()
+    assert route_data["task"]["assigned_agent_id"] == "AG-03"
+    assert route_data["task"]["status"] == "ready"
+    assert route_data["routing_decision"]["selected_agent_id"] == "AG-03"
+
+    # Verify GET /tasks/{task_id} reflects routing fields
+    get_res = client.get(f"/tasks/{task_id}")
+    assert get_res.status_code == 200
+    assert get_res.json()["assigned_agent_id"] == "AG-03"
+    assert get_res.json()["routing_decision"] is not None
+
+
+def test_route_task_api_unsupported_blocks_task(client: TestClient) -> None:
+    create_res = client.post(
+        "/tasks",
+        json={
+            "objective": "xyz nonsense task with no matching keywords",
+            "created_by": "founder:1",
+        },
+    )
+    assert create_res.status_code == 201
+    task_id = create_res.json()["id"]
+
+    route_res = client.post(f"/tasks/{task_id}/route")
+    assert route_res.status_code == 200
+    route_data = route_res.json()
+    assert route_data["task"]["assigned_agent_id"] is None
+    assert route_data["task"]["status"] == "blocked"
+    assert route_data["task"]["last_error_code"] == "ROUTING_UNSUPPORTED"
+    assert route_data["routing_decision"]["status"] == "unsupported"
+
+
+def test_route_task_api_missing_task_returns_404(client: TestClient) -> None:
+    res = client.post(f"/tasks/{uuid4()}/route")
+    assert res.status_code == 404
+

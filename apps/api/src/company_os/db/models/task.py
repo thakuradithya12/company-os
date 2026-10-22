@@ -68,6 +68,12 @@ class TaskRecord(Base):
     )
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    assigned_agent_id: Mapped[str | None] = mapped_column(
+        String(32), nullable=True, index=True
+    )
+    routing_decision: Mapped[dict[str, Any] | None] = mapped_column(
+        JSON, nullable=True
+    )
     last_error_code: Mapped[str | None] = mapped_column(String(80), nullable=True)
     last_error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(

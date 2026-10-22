@@ -10,9 +10,19 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from company_os.api.dependencies import get_db_session
-from company_os.api.schemas import TaskCreateRequest, TaskResponse
+from company_os.api.schemas import (
+    TaskCreateRequest,
+    TaskResponse,
+    TaskRouteResponse,
+)
 from company_os.db.models.task import TaskRecord
-from company_os.services.task_lifecycle import TaskLifecycleError, create_task
+from company_os.services.task_lifecycle import (
+    InvalidTaskTransition,
+    TaskLifecycleError,
+    TaskNotFound,
+    create_task,
+)
+from company_os.services.task_routing import route_task
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
@@ -82,3 +92,44 @@ def get_task_by_id(
             detail=f"Task {task_id} not found",
         )
     return task
+
+
+@router.post(
+    "/{task_id}/route",
+    response_model=TaskRouteResponse,
+    summary="Route a task to a registered specialist",
+    description=(
+        "Evaluates a task's objective and input payload against the approved "
+        "workforce registry, assigns the specialist if supported and available, "
+        "and records the decision in the task audit history."
+    ),
+)
+def route_task_endpoint(
+    task_id: UUID,
+    request: Request,
+    session: Annotated[Session, Depends(get_db_session)],
+) -> TaskRouteResponse:
+    """Deterministically route a task and persist the decision."""
+    request_id = request.headers.get("x-request-id")
+    try:
+        with session.begin():
+            task, decision = route_task(
+                session,
+                task_id=task_id,
+                request_id=request_id,
+            )
+    except TaskNotFound as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+    except InvalidTaskTransition as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
+
+    return TaskRouteResponse(
+        task=TaskResponse.model_validate(task),
+        routing_decision=decision.to_dict(),
+    )

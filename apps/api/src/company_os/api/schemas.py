@@ -93,7 +93,17 @@ class TaskResponse(BaseModel):
     cancel_requested_at: datetime | None
     started_at: datetime | None
     completed_at: datetime | None
+    assigned_agent_id: str | None = None
+    routing_decision: dict[str, Any] | None = None
     last_error_code: str | None
     last_error_message: str | None
     created_at: datetime
     updated_at: datetime
+
+
+class TaskRouteResponse(BaseModel):
+    """Outcome of an agent routing operation."""
+
+    task: TaskResponse
+    routing_decision: dict[str, Any]
+
