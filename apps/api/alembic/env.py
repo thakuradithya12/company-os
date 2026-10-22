@@ -5,6 +5,8 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+import company_os.db.models  # noqa: F401  (register mapped tables on Base.metadata)
+from company_os.db.base import Base
 from company_os.settings import Settings
 
 config = context.config
@@ -19,8 +21,8 @@ if not settings.database_url:
     )
 config.set_main_option("sqlalchemy.url", settings.database_url.replace("%", "%%"))
 
-# No domain models are introduced during foundation bootstrap.
-target_metadata = None
+# Importing the models registers their tables on the shared metadata.
+target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:
