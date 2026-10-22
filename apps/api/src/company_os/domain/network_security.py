@@ -80,10 +80,10 @@ class SSRFPenetrationGuard:
         self,
         url: str,
         allow_loopback: bool = False,
-    ) -> tuple[str, str, int, ipaddress.IPv4Address | ipaddress.IPv6Address, str]:
-        """Validate URL scheme and resolve host to a verified IP address.
+    ) -> tuple[str, str, int, list[ipaddress.IPv4Address | ipaddress.IPv6Address], str]:
+        """Validate URL scheme and resolve host to verified IP addresses.
 
-        Returns (scheme, hostname, port, validated_ip, path_and_query).
+        Returns (scheme, hostname, port, validated_ips, path_and_query).
         """
         parsed = urlparse(url)
         scheme = (parsed.scheme or "").lower()
@@ -117,7 +117,7 @@ class SSRFPenetrationGuard:
             )
 
         # Inspect all resolved addresses; if ANY resolved IP is prohibited, reject
-        validated_ip: ipaddress.IPv4Address | ipaddress.IPv6Address | None = None
+        validated_ips: list[ipaddress.IPv4Address | ipaddress.IPv6Address] = []
         for entry in addr_info:
             sockaddr = entry[4]
             ip_str = sockaddr[0]
@@ -128,19 +128,51 @@ class SSRFPenetrationGuard:
                     f"Prohibited IP address {ip_str!r} for host {hostname!r}"
                 )
 
-            if validated_ip is None:
-                validated_ip = ip_obj
+            if ip_obj not in validated_ips:
+                validated_ips.append(ip_obj)
 
-        if validated_ip is None:
+        if not validated_ips:
             raise SSRFSecurityError(
                 f"Could not find a valid IP for host {hostname!r}"
             )
 
-        return scheme, hostname, port, validated_ip, path
+        return scheme, hostname, port, validated_ips, path
+
+
+class DirectIPHTTPSConnection(http.client.HTTPSConnection):
+    """Direct-to-IP HTTPS connection enforcing TLS SNI and cert hostname verification."""
+
+    def __init__(
+        self,
+        ip_address: str,
+        server_hostname: str,
+        port: int | None = None,
+        *,
+        timeout: float = _DEFAULT_TIMEOUT_SECONDS,
+        context: ssl.SSLContext | None = None,
+    ) -> None:
+        super().__init__(ip_address, port=port, timeout=timeout, context=context)
+        self._server_hostname = server_hostname
+
+    def connect(self) -> None:
+        """Connect directly to the validated IP and wrap with TLS for server_hostname."""
+        self.sock = self._create_connection(
+            (self.host, self.port), self.timeout, self.source_address
+        )
+        try:
+            self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        except OSError:
+            pass
+
+        ssl_ctx = self._context or ssl.create_default_context()
+        self.sock = ssl_ctx.wrap_socket(
+            self.sock,
+            server_hostname=self._server_hostname,
+        )
 
 
 class BoundedHttpClient:
-    """Performs direct-to-IP HTTP GET requests with anti-rebinding and bounds."""
+    """Performs direct-to-IP HTTP/HTTPS GET requests with anti-rebinding and bounds."""
 
     def __init__(
         self,
@@ -148,11 +180,13 @@ class BoundedHttpClient:
         timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS,
         max_bytes: int = _DEFAULT_MAX_BYTES,
         accepted_content_types: frozenset[str] | None = None,
+        ssl_context: ssl.SSLContext | None = None,
     ) -> None:
         self._guard = SSRFPenetrationGuard()
         self._allow_loopback = allow_loopback
         self._timeout_seconds = timeout_seconds
         self._max_bytes = max_bytes
+        self._ssl_context = ssl_context
         self._accepted_content_types = accepted_content_types or frozenset({
             "text/html",
             "text/plain",
@@ -165,29 +199,12 @@ class BoundedHttpClient:
         """Perform a bounded GET request following redirects manually with SSRF checks."""
         current_url = url
         for _ in range(max_redirects + 1):
-            scheme, hostname, port, ip_addr, path = self._guard.validate_and_resolve(
+            scheme, hostname, port, validated_ips, path = self._guard.validate_and_resolve(
                 current_url, allow_loopback=self._allow_loopback
             )
 
-            conn: http.client.HTTPConnection | http.client.HTTPSConnection
-            ip_str = str(ip_addr)
-
-            if scheme == "https":
-                context = ssl.create_default_context()
-                conn = http.client.HTTPSConnection(
-                    ip_str,
-                    port=port,
-                    timeout=self._timeout_seconds,
-                    context=context,
-                )
-                conn.set_tunnel(hostname)
-            else:
-                conn = http.client.HTTPConnection(
-                    ip_str,
-                    port=port,
-                    timeout=self._timeout_seconds,
-                )
-
+            response: http.client.HTTPResponse | None = None
+            last_conn_error: Exception | None = None
             host_header = hostname if port in (80, 443) else f"{hostname}:{port}"
             headers = {
                 "Host": host_header,
@@ -196,19 +213,60 @@ class BoundedHttpClient:
                 "Connection": "close",
             }
 
-            try:
-                conn.request("GET", path, headers=headers)
-                response = conn.getresponse()
-            except TimeoutError as exc:
-                conn.close()
-                raise HttpTimeoutError(
-                    f"HTTP request timed out after {self._timeout_seconds}s"
-                ) from exc
-            except Exception as exc:
-                conn.close()
+            for ip_addr in validated_ips:
+                conn: http.client.HTTPConnection | DirectIPHTTPSConnection
+                ip_str = str(ip_addr)
+
+                if scheme == "https":
+                    context = self._ssl_context or ssl.create_default_context()
+                    conn = DirectIPHTTPSConnection(
+                        ip_str,
+                        server_hostname=hostname,
+                        port=port,
+                        timeout=self._timeout_seconds,
+                        context=context,
+                    )
+                else:
+                    conn = http.client.HTTPConnection(
+                        ip_str,
+                        port=port,
+                        timeout=self._timeout_seconds,
+                    )
+
+                try:
+                    conn.request("GET", path, headers=headers)
+                    response = conn.getresponse()
+                    break
+                except TimeoutError:
+                    conn.close()
+                    last_conn_error = HttpTimeoutError(
+                        f"HTTP request timed out after {self._timeout_seconds}s"
+                    )
+                except ssl.SSLCertVerificationError as exc:
+                    conn.close()
+                    raise NetworkSecurityError(
+                        f"TLS certificate verification failed for {hostname!r}: "
+                        f"{exc.verify_message}"
+                    ) from exc
+                except ssl.SSLError as exc:
+                    conn.close()
+                    raise NetworkSecurityError(
+                        f"TLS handshake failed for {hostname!r}: {exc}"
+                    ) from exc
+                except ConnectionRefusedError as exc:
+                    conn.close()
+                    last_conn_error = exc
+                    continue
+                except Exception as exc:
+                    conn.close()
+                    last_conn_error = exc
+
+            if response is None:
+                if isinstance(last_conn_error, NetworkSecurityError):
+                    raise last_conn_error
                 raise NetworkSecurityError(
-                    f"Connection failed: {type(exc).__name__}"
-                ) from exc
+                    f"Connection failed: {type(last_conn_error).__name__}"
+                ) from last_conn_error
 
             # Handle redirects manually
             if response.status in {301, 302, 303, 307, 308}:

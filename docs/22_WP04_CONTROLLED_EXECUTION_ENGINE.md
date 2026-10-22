@@ -37,9 +37,15 @@ The `research.source_verifier` tool utilizes `SSRFPenetrationGuard` and `Bounded
 1. **Prohibited Subnets**:
    - IPv4: `127.0.0.0/8` (loopback), `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` (RFC1918 private), `169.254.0.0/16` (link-local / AWS/GCP cloud metadata `169.254.169.254`), `100.64.0.0/10` (carrier-grade NAT), `0.0.0.0/8` (unspecified).
    - IPv6: `::1` (loopback), `fe80::/10` (link-local), `fc00::/7` (unique local address), and IPv4-mapped IPv6 `::ffff:0:0/96` (recursively inspected).
-2. **DNS Rebinding Prevention**:
+2. **DNS Rebinding Prevention & Direct-to-IP TLS Connections**:
    - Hostnames are resolved using `socket.getaddrinfo`. If *any* returned IP is in a prohibited range, the request fails closed immediately.
-   - Outbound HTTP connection connects directly to the validated IP address (`http.client.HTTPConnection(ip_str, port)`). The `Host: <hostname>` header is passed explicitly. No secondary DNS resolution occurs at socket connect time.
+   - Outbound HTTP connection connects directly to the validated IP address (`http.client.HTTPConnection(ip_str, port)`).
+   - Outbound HTTPS connection connects directly to the validated IP address using `DirectIPHTTPSConnection`, wrapping the connected socket with TLS specifying `server_hostname=hostname`. This guarantees:
+     - No secondary connection-time DNS lookups (anti-DNS rebinding).
+     - Accurate TLS SNI (Server Name Indication) for multi-tenant and virtual-hosted TLS services.
+     - Strict TLS certificate verification against the target hostname (SAN/CN verification).
+     - Never uses `set_tunnel()` (HTTP CONNECT proxy tunneling), avoiding corrupting direct TLS sessions.
+     - HTTP `Host:` header matches `hostname` (or `hostname:port`).
 3. **Manual Redirect Inspection**:
    - HTTP redirects (`301`, `302`, `303`, `307`, `308`) are intercepted. Up to 3 redirects are followed, but each redirect URL is independently resolved and passed through `SSRFPenetrationGuard` before connecting.
 4. **Content & Resource Bounds**:
@@ -49,9 +55,9 @@ The `research.source_verifier` tool utilizes `SSRFPenetrationGuard` and `Bounded
 
 ---
 
-## 4. Two-Phase Database Transaction Architecture
+## 4. Two-Phase Database Transaction Architecture & Canonical Transitions
 
-Holding database transactions or row locks during external HTTP requests risks connection starvation, thread pool exhaustion, and deadlock. Company OS enforces a 3-phase split:
+Holding database transactions or row locks during external HTTP requests risks connection starvation, thread pool exhaustion, and deadlock. Company OS enforces a 3-phase split paired with strict canonical state transitions:
 
 ```
 [Client / API Request]
@@ -60,9 +66,10 @@ Holding database transactions or row locks during external HTTP requests risks c
  ┌─────────────────────────────────────────────────────────┐
  │ Phase 1: Transaction 1 (DB Claim & Lock)               │
  │ • SELECT ... FOR UPDATE on TaskRecord                   │
+ │ • Reject execution from QUEUED (409); must reach READY  │
  │ • Reject if task is terminal (409) or running (409)     │
  │ • Check ToolRegistry authorization & schema validation │
- │ • Transition task status: QUEUED/READY -> RUNNING      │
+ │ • Transition task status canonical: READY -> RUNNING   │
  │ • Insert TaskExecutionRecord (status: RUNNING)         │
  │ • Insert TaskAuditEventRecord (execution.started)       │
  │ • COMMIT Transaction 1                                  │
@@ -72,10 +79,11 @@ Holding database transactions or row locks during external HTTP requests risks c
  ┌─────────────────────────────────────────────────────────┐
  │ Phase 2: Tool Execution (NO DB Transaction)             │
  │ • Invoke tool.handler(validated_params)                 │
- │ • Real HTTP retrieval via BoundedHttpClient             │
+ │ • Real HTTP/HTTPS retrieval via BoundedHttpClient       │
+ │ • Store durable artifact in EvidenceStore               │
  │ • Calculate SHA-256 digest of content                   │
  │ • Execute verification checks                           │
- │ • Trap any NetworkSecurityError or HTTP exception       │
+ │ • Sanitize errors (never leak untrusted response body)  │
  └─────────────────────────────────────────────────────────┘
          │
          ▼
@@ -84,13 +92,12 @@ Holding database transactions or row locks during external HTTP requests risks c
  │ • Open fresh DB session                                 │
  │ • SELECT ... FOR UPDATE on TaskRecord & ExecutionRecord │
  │ • Update TaskExecutionRecord (output, checks, evidence) │
- │ • Completion Verification Gate:                         │
+ │ • Canonical Completion Verification Gate:               │
  │     IF (all checks passed == True AND evidence_ref):    │
- │       Task status -> COMPLETED                          │
- │       Insert audit event (task.completed)               │
+ │       Canonical Step 1: RUNNING -> VERIFYING            │
+ │       Canonical Step 2: VERIFYING -> COMPLETED          │
  │     ELSE:                                               │
- │       Task status -> BLOCKED (or FAILED if max retries) │
- │       Insert audit event (task.blocked / task.failed)   │
+ │       Canonical transition: RUNNING -> BLOCKED/FAILED   │
  │ • COMMIT Transaction 2                                  │
  └─────────────────────────────────────────────────────────┘
          │
@@ -100,7 +107,7 @@ Holding database transactions or row locks during external HTTP requests risks c
 
 ---
 
-## 5. Persistence & Migration
+## 5. Persistence, Evidence Store & Migration
 
 - Migration: `apps/api/alembic/versions/0004_task_executions.py`
 - Table: `task_executions`
@@ -112,12 +119,19 @@ Holding database transactions or row locks during external HTTP requests risks c
   - `status`: VARCHAR(32) (`running`, `completed`, `failed`, `blocked`, `interrupted`)
   - `input_parameters`: JSON
   - `output_payload`: JSON
-  - `error_message`: TEXT (Nullable)
-  - `evidence_reference`: VARCHAR(256) (Nullable, format: `evidence:research:sha256:<hash>`)
+  - `error_message`: TEXT (Nullable, sanitized)
+  - `evidence_reference`: VARCHAR(256) (Nullable, format: `artifact://evidence/<tool_id>/<exec_id>/<hash>`)
   - `verification_checks`: JSON (List of structured check objects)
   - `duration_ms`: INTEGER
   - `created_at`: TIMESTAMPTZ
   - `updated_at`: TIMESTAMPTZ
+
+### Retrievable Durable Evidence Store (`EvidenceStore`)
+A content hash alone is not an evidence store. The `EvidenceStore` (`company_os.domain.evidence`) persists full structured artifacts:
+- URI Scheme: `artifact://evidence/{tool_id}/{execution_id}/{content_sha256}`
+- Contains: `artifact_uri`, `task_id`, `execution_id`, `tool_id`, `source_url`, `retrieved_at`, `content_sha256`, `content_type`, `byte_length`, `content_snippet`, and `verification_checks`.
+- Supports durable file storage under `.company_os_storage/evidence/` with in-memory caching.
+- Retrievable on demand via `evidence_store.retrieve(artifact_uri)`.
 
 ---
 
@@ -142,7 +156,7 @@ Triggers execution of an approved tool for the task.
   - `200 OK`: Tool execution finished. Returns `TaskExecutionResponse`.
   - `403 Forbidden`: Agent not authorized for tool (`UnauthorizedToolError`).
   - `404 Not Found`: Task not found or Tool not registered.
-  - `409 Conflict`: Task already completed/terminal or active execution is already running.
+  - `409 Conflict`: Task is in `queued` (must reach `ready`), or is terminal, or active execution is already running.
   - `422 Unprocessable Entity`: Input parameters fail schema validation.
 
 ### 2. `GET /tasks/{task_id}/executions`
@@ -155,6 +169,9 @@ Retrieves chronological execution history for the specified task.
 
 ## 7. Crash Recovery & Non-Idempotent Protection
 
-- Crashed or killed workers leave tasks in `RUNNING`.
-- `mark_interrupted_executions(session, task_id)` transitions stranded execution attempts to `INTERRUPTED`.
-- Operations are **not** automatically retried blindly. Any retry requires explicit caller action, preserving forensic state and preventing duplicate non-idempotent operations.
+- Crashed or interrupted workers leave tasks in `RUNNING`.
+- `mark_interrupted_executions(session, task_id)` transitions stranded execution attempts to `INTERRUPTED` AND canonically transitions the associated tasks from `RUNNING` to `BLOCKED`.
+- This guarantees:
+  1. Interrupted executions can never leave tasks falsely appearing completed.
+  2. Tasks cannot remain stuck in `RUNNING`, which would permanently block subsequent executions.
+  3. Operations are **not** automatically retried blindly. Any retry requires explicit caller action, preserving forensic state and preventing duplicate non-idempotent operations.

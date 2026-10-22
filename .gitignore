@@ -4,6 +4,8 @@
 !.env.example
 *.pem
 *.key
+!apps/api/tests/fixtures/certs/*.pem
+!apps/api/tests/fixtures/certs/*.key
 secrets/
 
 # Python
@@ -32,6 +34,7 @@ Thumbs.db
 logs/
 data/
 artifacts/
+.company_os_storage/
 recordings/
 transcripts/
 *.sqlite3

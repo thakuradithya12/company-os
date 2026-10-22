@@ -385,7 +385,7 @@ def test_execute_task_endpoint_success(client: TestClient) -> None:
         assert exec_res.status_code == 200
         exec_data = exec_res.json()
         assert exec_data["status"] == "completed"
-        assert exec_data["evidence_reference"].startswith("evidence:research:sha256:")
+        assert exec_data["evidence_reference"].startswith("artifact://evidence/research.source_verifier/")
         assert exec_data["output_payload"]["status_code"] == 200
 
         # Verify task is now completed
@@ -501,5 +501,25 @@ def test_execute_task_endpoint_terminal_task_409(
 def test_get_task_executions_missing_task_404(client: TestClient) -> None:
     res = client.get(f"/tasks/{uuid4()}/executions")
     assert res.status_code == 404
+
+
+def test_execute_task_endpoint_queued_state_rejected_409(client: TestClient) -> None:
+    create_res = client.post(
+        "/tasks",
+        json={"objective": "Unrouted task", "created_by": "founder:1"},
+    )
+    task_id = create_res.json()["id"]
+
+    # Calling execute directly from queued without routing must be rejected with 409
+    res = client.post(
+        f"/tasks/{task_id}/execute",
+        json={
+            "tool_id": "research.source_verifier",
+            "parameters": {"url": "https://example.com"},
+        },
+    )
+    assert res.status_code == 409
+    assert "must be routed" in res.json()["detail"]
+
 
 

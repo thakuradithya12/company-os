@@ -8,6 +8,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from company_os.domain.evidence import get_default_evidence_store
 from company_os.domain.network_security import BoundedHttpClient
 
 
@@ -126,8 +127,17 @@ def handle_source_verifier(
             }
         )
 
-    evidence_ref = f"evidence:research:sha256:{content_sha256}"
-    return output_payload, checks, evidence_ref
+    evidence_store = get_default_evidence_store()
+    artifact = evidence_store.store(
+        tool_id="research.source_verifier",
+        source_url=params.url,
+        content_sha256=content_sha256,
+        content_type=resp.content_type,
+        byte_length=resp.byte_length,
+        content_snippet=snippet_preview,
+        verification_checks=checks,
+    )
+    return output_payload, checks, artifact.artifact_uri
 
 
 class ToolRegistry:

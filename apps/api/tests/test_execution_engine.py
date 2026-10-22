@@ -97,7 +97,7 @@ def test_successful_execution_and_completion_gate(
 
         assert result.status == ExecutionStatus.COMPLETED
         assert result.evidence_reference is not None
-        assert result.evidence_reference.startswith("evidence:research:sha256:")
+        assert result.evidence_reference.startswith("artifact://evidence/research.source_verifier/")
         assert result.error_message is None
         assert len(result.verification_checks) >= 3
 
@@ -121,7 +121,13 @@ def test_successful_execution_and_completion_gate(
             ).all()
             actions = [e.action for e in audit_events]
             assert "execution.started" in actions
-            assert "task.completed" in actions
+            assert "task.transitioned" in actions
+
+            # Verify canonical transitions: ready -> running -> verifying -> completed
+            to_statuses = [e.to_status for e in audit_events if e.to_status is not None]
+            assert "running" in to_statuses
+            assert "verifying" in to_statuses
+            assert "completed" in to_statuses
     finally:
         server.stop()
 
@@ -208,13 +214,14 @@ def test_ssrf_rejection_blocks_task(
 
     assert result.status == ExecutionStatus.FAILED
     assert result.error_message is not None
-    assert "Prohibited IP" in result.error_message
+    assert "Security error" in result.error_message
 
     with db_session_factory() as session:
         task = session.scalar(select(TaskRecord).where(TaskRecord.id == task_id))
         assert task is not None
         assert task.status == TaskStatus.BLOCKED.value
         assert task.last_error_code == "EXECUTION_ERROR"
+        assert task.last_error_message == result.error_message
 
 
 def test_unauthorized_tool_rejected(
@@ -395,6 +402,13 @@ def test_mark_interrupted_executions(
         assert updated is not None
         assert updated.status == ExecutionStatus.INTERRUPTED.value
 
+        updated_task = session.scalar(
+            select(TaskRecord).where(TaskRecord.id == task_id)
+        )
+        assert updated_task is not None
+        assert updated_task.status == TaskStatus.BLOCKED.value
+        assert updated_task.last_error_code == "EXECUTION_INTERRUPTED"
+
 
 def test_missing_task_raises_task_not_found(
     db_session_factory: sessionmaker[Session],
@@ -406,3 +420,82 @@ def test_missing_task_raises_task_not_found(
             tool_id="research.source_verifier",
             parameters={"url": "https://example.com"},
         )
+
+
+def test_execution_rejected_from_queued_state(
+    db_session_factory: sessionmaker[Session],
+) -> None:
+    from company_os.services.task_lifecycle import InvalidTaskTransition
+
+    task_id = uuid4()
+    with db_session_factory() as session:
+        with session.begin():
+            task = TaskRecord(
+                id=task_id,
+                objective="Unrouted queued task",
+                created_by="founder:alice",
+                status=TaskStatus.QUEUED.value,
+                version=1,
+            )
+            session.add(task)
+
+    with pytest.raises(InvalidTaskTransition, match="must be routed"):
+        execute_task_tool(
+            db_session_factory,
+            task_id=task_id,
+            tool_id="research.source_verifier",
+            parameters={"url": "https://example.com"},
+        )
+
+
+def test_durable_evidence_store_retrieval(
+    db_session_factory: sessionmaker[Session],
+) -> None:
+    class DocHandler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain")
+            self.end_headers()
+            self.wfile.write(b"Audit report content for durability verification")
+
+        def log_message(self, format: str, *args: Any) -> None:
+            pass
+
+    server = _LocalTestServer(DocHandler)
+    try:
+        task_id = uuid4()
+        with db_session_factory() as session:
+            with session.begin():
+                task = TaskRecord(
+                    id=task_id,
+                    objective="Verify durable report storage",
+                    created_by="founder:alice",
+                    status=TaskStatus.READY.value,
+                    assigned_agent_id="AG-03",
+                    version=2,
+                )
+                session.add(task)
+
+        result = execute_task_tool(
+            db_session_factory,
+            task_id=task_id,
+            tool_id="research.source_verifier",
+            parameters={
+                "url": f"http://127.0.0.1:{server.port}/report",
+                "allow_loopback_for_testing": True,
+            },
+        )
+        assert result.status == ExecutionStatus.COMPLETED
+        assert result.evidence_reference is not None
+
+        from company_os.domain.evidence import get_default_evidence_store
+
+        evidence_store = get_default_evidence_store()
+        retrieved_artifact = evidence_store.retrieve(result.evidence_reference)
+        assert retrieved_artifact is not None
+        assert retrieved_artifact.source_url == f"http://127.0.0.1:{server.port}/report"
+        assert retrieved_artifact.content_sha256 == result.output_payload["content_sha256"]
+        assert "Audit report content" in retrieved_artifact.content_snippet
+    finally:
+        server.stop()
+

@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import http.server
 import ipaddress
+import ssl
 import threading
 import time
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -12,6 +14,7 @@ from company_os.domain.network_security import (
     BoundedHttpClient,
     HttpResponse,
     HttpTimeoutError,
+    NetworkSecurityError,
     ResponseSizeExceededError,
     SSRFPenetrationGuard,
     SSRFSecurityError,
@@ -184,3 +187,130 @@ def test_bounded_http_client_enforces_timeout() -> None:
             client.get(f"http://127.0.0.1:{server.port}/slow")
     finally:
         server.stop()
+
+
+class _TestHttpsServer:
+    def __init__(
+        self,
+        handler_cls: type[http.server.BaseHTTPRequestHandler],
+        cert_file: Path,
+        key_file: Path,
+    ) -> None:
+        self.server = http.server.HTTPServer(("127.0.0.1", 0), handler_cls)
+        ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        ctx.load_cert_chain(certfile=str(cert_file), keyfile=str(key_file))
+        self.server.socket = ctx.wrap_socket(self.server.socket, server_side=True)
+        self.port = self.server.server_port
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+
+    def stop(self) -> None:
+        self.server.shutdown()
+        self.server.server_close()
+
+
+def test_bounded_http_client_direct_https_success() -> None:
+    fixtures_dir = Path(__file__).parent / "fixtures" / "certs"
+    cert_path = fixtures_dir / "localhost_cert.pem"
+    key_path = fixtures_dir / "localhost_key.pem"
+
+    class SecureHandler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain")
+            self.end_headers()
+            self.wfile.write(b"Direct HTTPS Success Content")
+
+        def log_message(self, format: str, *args: Any) -> None:
+            pass
+
+    server = _TestHttpsServer(SecureHandler, cert_path, key_path)
+    try:
+        client_ctx = ssl.create_default_context(cafile=str(cert_path))
+        client = BoundedHttpClient(
+            allow_loopback=True,
+            ssl_context=client_ctx,
+        )
+        resp = client.get(f"https://localhost:{server.port}/secure")
+        assert resp.status_code == 200
+        assert resp.text == "Direct HTTPS Success Content"
+    finally:
+        server.stop()
+
+
+def test_bounded_http_client_direct_https_untrusted_cert_rejected() -> None:
+    fixtures_dir = Path(__file__).parent / "fixtures" / "certs"
+    cert_path = fixtures_dir / "localhost_cert.pem"
+    key_path = fixtures_dir / "localhost_key.pem"
+
+    class SecureHandler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            self.send_response(200)
+            self.end_headers()
+
+        def log_message(self, format: str, *args: Any) -> None:
+            pass
+
+    server = _TestHttpsServer(SecureHandler, cert_path, key_path)
+    try:
+        # Default SSL context without custom CA must reject untrusted self-signed cert
+        client = BoundedHttpClient(allow_loopback=True)
+        with pytest.raises(NetworkSecurityError, match="TLS certificate verification failed"):
+            client.get(f"https://localhost:{server.port}/secure")
+    finally:
+        server.stop()
+
+
+def test_bounded_http_client_direct_https_hostname_mismatch_rejected() -> None:
+    fixtures_dir = Path(__file__).parent / "fixtures" / "certs"
+    cert_path = fixtures_dir / "mismatch_cert.pem"  # Cert is for other.example.com
+    key_path = fixtures_dir / "mismatch_key.pem"
+
+    class SecureHandler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            self.send_response(200)
+            self.end_headers()
+
+        def log_message(self, format: str, *args: Any) -> None:
+            pass
+
+    server = _TestHttpsServer(SecureHandler, cert_path, key_path)
+    try:
+        client_ctx = ssl.create_default_context(cafile=str(cert_path))
+        client = BoundedHttpClient(
+            allow_loopback=True,
+            ssl_context=client_ctx,
+        )
+        # Server presents cert for other.example.com, but target host is localhost
+        with pytest.raises(NetworkSecurityError, match="TLS certificate verification failed"):
+            client.get(f"https://localhost:{server.port}/secure")
+    finally:
+        server.stop()
+
+
+def test_bounded_http_client_https_redirect_to_ssrf_rejected() -> None:
+    fixtures_dir = Path(__file__).parent / "fixtures" / "certs"
+    cert_path = fixtures_dir / "localhost_cert.pem"
+    key_path = fixtures_dir / "localhost_key.pem"
+
+    class RedirectHandler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            self.send_response(302)
+            self.send_header("Location", "http://169.254.169.254/latest/meta-data/")
+            self.end_headers()
+
+        def log_message(self, format: str, *args: Any) -> None:
+            pass
+
+    server = _TestHttpsServer(RedirectHandler, cert_path, key_path)
+    try:
+        client_ctx = ssl.create_default_context(cafile=str(cert_path))
+        client = BoundedHttpClient(
+            allow_loopback=True,
+            ssl_context=client_ctx,
+        )
+        with pytest.raises(SSRFSecurityError, match="Prohibited IP"):
+            client.get(f"https://localhost:{server.port}/redirect-ssrf")
+    finally:
+        server.stop()
+

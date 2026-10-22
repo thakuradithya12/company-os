@@ -7,6 +7,11 @@ from company_os.domain.agent_registry import (
     TaskCategory,
     create_default_agent_registry,
 )
+from company_os.domain.evidence import (
+    EvidenceArtifact,
+    EvidenceStore,
+    get_default_evidence_store,
+)
 from company_os.domain.task_router import (
     DeterministicTaskRouter,
     RoutingDecision,
@@ -34,6 +39,8 @@ __all__ = [
     "AgentRegistry",
     "AgentSpec",
     "DeterministicTaskRouter",
+    "EvidenceArtifact",
+    "EvidenceStore",
     "ExecutionRequest",
     "ExecutionResult",
     "ExecutionStatus",
@@ -48,4 +55,5 @@ __all__ = [
     "can_transition_task",
     "create_default_agent_registry",
     "create_default_tool_registry",
+    "get_default_evidence_store",
 ]

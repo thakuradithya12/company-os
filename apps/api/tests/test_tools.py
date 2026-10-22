@@ -85,7 +85,15 @@ def test_source_verifier_real_execution() -> None:
         assert output["status_code"] == 200
         assert "Q3 Financial Evidence" in output["snippet_preview"]
         assert output["content_sha256"] is not None
-        assert evidence_ref.startswith("evidence:research:sha256:")
+        assert evidence_ref.startswith("artifact://evidence/research.source_verifier/")
+
+        from company_os.domain.evidence import get_default_evidence_store
+
+        stored_artifact = get_default_evidence_store().retrieve(evidence_ref)
+        assert stored_artifact is not None
+        assert stored_artifact.content_sha256 == output["content_sha256"]
+        assert stored_artifact.source_url == f"http://127.0.0.1:{server.port}/evidence"
+        assert stored_artifact.byte_length > 0
 
         # Verification checks must contain structured evidence
         assert len(checks) >= 3

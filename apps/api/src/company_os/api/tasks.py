@@ -198,6 +198,11 @@ def execute_task_tool_endpoint(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(exc),
         ) from exc
+    except InvalidTaskTransition as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
     except (TaskTerminalStateError, ConcurrentExecutionConflictError) as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
