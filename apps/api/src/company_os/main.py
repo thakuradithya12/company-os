@@ -1,32 +1,53 @@
-"""Minimal API foundation: liveness and dependency-aware readiness only."""
+"""API foundation: health, readiness, and canonical task management."""
 
 from __future__ import annotations
 
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import Any
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import StaticPool
 
+from company_os.api.tasks import router as tasks_router
 from company_os.settings import Settings
 
-logger = logging.getLogger("company_os.health")
+logger = logging.getLogger("company_os.api")
 
 
 @asynccontextmanager
 async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     settings: Settings = application.state.settings
-    engine: Engine | None = None
-    if settings.database_url:
-        engine = create_engine(settings.database_url, pool_pre_ping=True, pool_recycle=300)
+    engine: Engine | None = getattr(application.state, "engine", None)
+    session_factory: sessionmaker[Session] | None = getattr(
+        application.state, "session_factory", None
+    )
+    created_engine = False
+
+    if engine is None and settings.database_url:
+        engine_kwargs: dict[str, Any] = {"pool_pre_ping": True}
+        if settings.database_url.startswith("sqlite"):
+            engine_kwargs["poolclass"] = StaticPool
+            engine_kwargs["connect_args"] = {"check_same_thread": False}
+        else:
+            engine_kwargs["pool_recycle"] = 300
+        engine = create_engine(settings.database_url, **engine_kwargs)
+        created_engine = True
+
+    if session_factory is None and engine is not None:
+        session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+
     application.state.engine = engine
+    application.state.session_factory = session_factory
     try:
         yield
     finally:
-        if engine is not None:
+        if created_engine and engine is not None:
             engine.dispose()
 
 
@@ -41,6 +62,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     application.state.settings = app_settings
     application.state.engine = None
+    application.state.session_factory = None
+
+    @application.exception_handler(SQLAlchemyError)
+    def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError) -> JSONResponse:
+        logger.warning("Database error during request (error_type=%s)", type(exc).__name__)
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"detail": "Database service is unavailable"},
+        )
 
     @application.get("/health/live", tags=["health"])
     def liveness() -> dict[str, str]:
@@ -69,6 +99,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             )
 
         return {"status": "ready", "checks": {"database": "ok"}}
+
+    application.include_router(tasks_router)
+    application.include_router(tasks_router, prefix="/api/v1")
 
     return application
 

@@ -18,7 +18,7 @@ Initial API domains, not a promise to implement them all in the first coding pha
 - `/auth`: login/session/logout, session info, MFA status where implemented.
 - `/objectives`: create and inspect founder objectives.
 - `/plans`: view plan versions, acceptance criteria, dependencies, and clarification requests.
-- `/tasks`: list/detail/create where authorized, pause/resume/cancel/retry, and attempt history.
+- `/tasks`: canonical task creation and retrieval (`POST /tasks`, `GET /tasks/{task_id}`, and `/api/v1/tasks`). NOTE: in the current phase prior to authentication, `created_by` is caller-supplied metadata and must not be treated as authenticated identity. See `docs/20_WP03B_TASK_API_AND_SUBMISSION.md`.
 - `/workforce`: list approved capability definitions, inspect status, edit through authorized governance flow.
 - `/approvals`: list, inspect, approve, reject, or request changes to a specific proposal version.
 - `/memory`: search and manage memory within the operator's access scope.
@@ -62,7 +62,7 @@ Live updates should include event ID, entity ID, event type, state version, time
 
 ## 6. Authentication and errors
 
-Unauthenticated private requests return an appropriate 401; authenticated but unauthorized requests return 403 or a policy-safe denial. Validation errors identify the input field without exposing secrets. Provider errors are mapped to stable categories such as `timeout`, `rate_limited`, `unavailable`, `invalid_output`, `permission_denied`, `budget_exceeded`, `policy_blocked`, and `unknown_external_outcome`.
+Unauthenticated private requests return an appropriate 401; authenticated but unauthorized requests return 403 or a policy-safe denial. Prior to the full authentication work package, endpoints that accept caller-supplied identifiers (such as `created_by` on `/tasks`) record them strictly for provenance/audit attribution, NOT verified authentication. Validation errors identify the input field without exposing secrets. Provider errors are mapped to stable categories such as `timeout`, `rate_limited`, `unavailable`, `invalid_output`, `permission_denied`, `budget_exceeded`, `policy_blocked`, and `unknown_external_outcome`.
 
 ## 7. API acceptance requirements
 
