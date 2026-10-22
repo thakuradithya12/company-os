@@ -22,9 +22,12 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from company_os.db.base import Base
 from company_os.domain.task_state import ActorType, TaskStatus
+from company_os.domain.tools import ExecutionStatus, RiskTier
 
 _TASK_STATUS_SQL = ", ".join(f"'{status.value}'" for status in TaskStatus)
 _ACTOR_TYPE_SQL = ", ".join(f"'{actor.value}'" for actor in ActorType)
+_EXECUTION_STATUS_SQL = ", ".join(f"'{status.value}'" for status in ExecutionStatus)
+_RISK_TIER_SQL = ", ".join(f"'{tier.value}'" for tier in RiskTier)
 
 
 class TaskRecord(Base):
@@ -42,7 +45,9 @@ class TaskRecord(Base):
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
     objective: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(
-        String(32), nullable=False, default=TaskStatus.QUEUED.value,
+        String(32),
+        nullable=False,
+        default=TaskStatus.QUEUED.value,
         server_default=TaskStatus.QUEUED.value,
     )
     created_by: Mapped[str] = mapped_column(String(128), nullable=False)
@@ -86,6 +91,9 @@ class TaskRecord(Base):
     audit_events: Mapped[list[TaskAuditEventRecord]] = relationship(
         back_populates="task", order_by="TaskAuditEventRecord.created_at", passive_deletes=True
     )
+    executions: Mapped[list[TaskExecutionRecord]] = relationship(
+        back_populates="task", order_by="TaskExecutionRecord.created_at", passive_deletes=True
+    )
 
 
 class TaskAuditEventRecord(Base):
@@ -120,3 +128,57 @@ class TaskAuditEventRecord(Base):
     )
 
     task: Mapped[TaskRecord] = relationship(back_populates="audit_events")
+
+
+class TaskExecutionRecord(Base):
+    """Durable record of an individual tool execution attempt on a task."""
+
+    __tablename__ = "task_executions"
+    __table_args__ = (
+        CheckConstraint(
+            f"status IN ({_EXECUTION_STATUS_SQL})", name="ck_task_executions_status"
+        ),
+        CheckConstraint(
+            f"risk_tier IN ({_RISK_TIER_SQL})", name="ck_task_executions_risk_tier"
+        ),
+        Index("ix_task_executions_task_id", "task_id"),
+        Index("ix_task_executions_status", "status"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    task_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("tasks.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    agent_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    tool_id: Mapped[str] = mapped_column(String(80), nullable=False)
+    risk_tier: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(32), nullable=False, default=ExecutionStatus.RUNNING.value
+    )
+    input_parameters: Mapped[dict[str, Any]] = mapped_column(
+        JSON, nullable=False, default=dict
+    )
+    output_payload: Mapped[dict[str, Any]] = mapped_column(
+        JSON, nullable=False, default=dict
+    )
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    evidence_reference: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    verification_checks: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSON, nullable=False, default=list
+    )
+    duration_ms: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    task: Mapped[TaskRecord] = relationship(back_populates="executions")

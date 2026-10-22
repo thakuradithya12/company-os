@@ -45,3 +45,22 @@ def get_db_session(request: Request) -> Iterator[Session]:
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Database service is unavailable",
         ) from None
+
+
+def get_session_factory(request: Request) -> sessionmaker[Session]:
+    """Provide a sessionmaker for multi-phase operations controlling transaction boundaries."""
+    engine: Engine | None = getattr(request.app.state, "engine", None)
+    if engine is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database is not configured",
+        )
+
+    session_factory: sessionmaker[Session] | None = getattr(
+        request.app.state, "session_factory", None
+    )
+    if session_factory is None:
+        session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+        request.app.state.session_factory = session_factory
+
+    return session_factory

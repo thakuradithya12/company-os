@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import http.server
+import threading
 from collections.abc import Iterator
+from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
@@ -334,4 +337,169 @@ def test_route_task_api_unsupported_blocks_task(client: TestClient) -> None:
 def test_route_task_api_missing_task_returns_404(client: TestClient) -> None:
     res = client.post(f"/tasks/{uuid4()}/route")
     assert res.status_code == 404
+
+
+def test_execute_task_endpoint_success(client: TestClient) -> None:
+    class DocHandler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain")
+            self.end_headers()
+            self.wfile.write(b"Financial Research Evidence Data")
+
+        def log_message(self, format: str, *args: Any) -> None:
+            pass
+
+    server = http.server.HTTPServer(("127.0.0.1", 0), DocHandler)
+    port = server.server_port
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        # Create and route task to AG-03
+        create_res = client.post(
+            "/tasks",
+            json={
+                "objective": "Perform market research on cloud infrastructure",
+                "created_by": "founder:1",
+            },
+        )
+        assert create_res.status_code == 201
+        task_id = create_res.json()["id"]
+
+        route_res = client.post(f"/tasks/{task_id}/route")
+        assert route_res.status_code == 200
+        assert route_res.json()["task"]["assigned_agent_id"] == "AG-03"
+
+        # Execute research tool
+        exec_res = client.post(
+            f"/tasks/{task_id}/execute",
+            json={
+                "tool_id": "research.source_verifier",
+                "parameters": {
+                    "url": f"http://127.0.0.1:{port}/evidence",
+                    "expected_snippet": "Financial Research Evidence Data",
+                    "allow_loopback_for_testing": True,
+                },
+            },
+        )
+        assert exec_res.status_code == 200
+        exec_data = exec_res.json()
+        assert exec_data["status"] == "completed"
+        assert exec_data["evidence_reference"].startswith("evidence:research:sha256:")
+        assert exec_data["output_payload"]["status_code"] == 200
+
+        # Verify task is now completed
+        get_res = client.get(f"/tasks/{task_id}")
+        assert get_res.status_code == 200
+        assert get_res.json()["status"] == "completed"
+        assert get_res.json()["completed_at"] is not None
+
+        # Verify execution history endpoint
+        hist_res = client.get(f"/tasks/{task_id}/executions")
+        assert hist_res.status_code == 200
+        executions = hist_res.json()
+        assert len(executions) == 1
+        assert executions[0]["id"] == exec_data["id"]
+        assert executions[0]["tool_id"] == "research.source_verifier"
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_execute_task_endpoint_missing_task_404(client: TestClient) -> None:
+    res = client.post(
+        f"/tasks/{uuid4()}/execute",
+        json={"tool_id": "research.source_verifier", "parameters": {"url": "https://example.com"}},
+    )
+    assert res.status_code == 404
+
+
+def test_execute_task_endpoint_tool_not_found_404(client: TestClient) -> None:
+    create_res = client.post(
+        "/tasks",
+        json={"objective": "Test objective", "created_by": "founder:1"},
+    )
+    task_id = create_res.json()["id"]
+    res = client.post(
+        f"/tasks/{task_id}/execute",
+        json={"tool_id": "unknown.tool", "parameters": {}},
+    )
+    assert res.status_code == 404
+
+
+def test_execute_task_endpoint_unauthorized_tool_403(
+    client: TestClient, app_with_db: Any
+) -> None:
+    # Task assigned to AG-07 (builder)
+    task_id = uuid4()
+    with app_with_db.state.session_factory() as session:
+        with session.begin():
+            task = TaskRecord(
+                id=task_id,
+                objective="Build landing page",
+                created_by="founder:1",
+                status=TaskStatus.READY.value,
+                assigned_agent_id="AG-07",
+                version=2,
+            )
+            session.add(task)
+
+    res = client.post(
+        f"/tasks/{task_id}/execute",
+        json={
+            "tool_id": "research.source_verifier",
+            "parameters": {"url": "https://example.com"},
+        },
+    )
+    assert res.status_code == 403
+
+
+def test_execute_task_endpoint_invalid_parameters_422(client: TestClient) -> None:
+    create_res = client.post(
+        "/tasks",
+        json={"objective": "Perform market research on tech trends", "created_by": "founder:1"},
+    )
+    task_id = create_res.json()["id"]
+    client.post(f"/tasks/{task_id}/route")
+
+    res = client.post(
+        f"/tasks/{task_id}/execute",
+        json={
+            "tool_id": "research.source_verifier",
+            "parameters": {"url": ""},  # empty url rejected
+        },
+    )
+    assert res.status_code == 422
+
+
+def test_execute_task_endpoint_terminal_task_409(
+    client: TestClient, app_with_db: Any
+) -> None:
+    task_id = uuid4()
+    with app_with_db.state.session_factory() as session:
+        with session.begin():
+            task = TaskRecord(
+                id=task_id,
+                objective="Already completed task",
+                created_by="founder:1",
+                status=TaskStatus.COMPLETED.value,
+                assigned_agent_id="AG-03",
+                version=4,
+            )
+            session.add(task)
+
+    res = client.post(
+        f"/tasks/{task_id}/execute",
+        json={
+            "tool_id": "research.source_verifier",
+            "parameters": {"url": "https://example.com"},
+        },
+    )
+    assert res.status_code == 409
+
+
+def test_get_task_executions_missing_task_404(client: TestClient) -> None:
+    res = client.get(f"/tasks/{uuid4()}/executions")
+    assert res.status_code == 404
+
 

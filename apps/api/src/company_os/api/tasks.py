@@ -7,15 +7,28 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
-from company_os.api.dependencies import get_db_session
+from company_os.api.dependencies import get_db_session, get_session_factory
 from company_os.api.schemas import (
     TaskCreateRequest,
+    TaskExecuteRequest,
+    TaskExecutionResponse,
     TaskResponse,
     TaskRouteResponse,
 )
-from company_os.db.models.task import TaskRecord
+from company_os.db.models.task import TaskExecutionRecord, TaskRecord
+from company_os.services.execution_engine import (
+    ConcurrentExecutionConflictError,
+    TaskTerminalStateError,
+    ToolNotFoundError,
+    ToolValidationError,
+    UnauthorizedToolError,
+    execute_task_tool,
+)
+from company_os.services.execution_engine import (
+    TaskNotFound as ExecutionTaskNotFound,
+)
 from company_os.services.task_lifecycle import (
     InvalidTaskTransition,
     TaskLifecycleError,
@@ -133,3 +146,97 @@ def route_task_endpoint(
         task=TaskResponse.model_validate(task),
         routing_decision=decision.to_dict(),
     )
+
+
+@router.post(
+    "/{task_id}/execute",
+    response_model=TaskExecutionResponse,
+    summary="Execute an approved tool on a task",
+    description=(
+        "Executes a registered tool within strict risk boundaries. "
+        "Enforces two-phase transaction isolation (no database transaction held "
+        "during network/tool execution), input schema validation, agent authorization, "
+        "and a completion verification gate."
+    ),
+)
+def execute_task_tool_endpoint(
+    task_id: UUID,
+    payload: TaskExecuteRequest,
+    request: Request,
+    session_factory: Annotated[sessionmaker[Session], Depends(get_session_factory)],
+    session: Annotated[Session, Depends(get_db_session)],
+) -> TaskExecutionRecord:
+    """Execute a registered tool for an assigned task agent."""
+    request_id = payload.request_id or request.headers.get("x-request-id")
+    try:
+        result = execute_task_tool(
+            session_factory,
+            task_id=task_id,
+            tool_id=payload.tool_id,
+            parameters=payload.parameters,
+            agent_id=payload.agent_id,
+            caller=payload.caller,
+            request_id=request_id,
+        )
+    except ExecutionTaskNotFound as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+    except ToolNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+    except UnauthorizedToolError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(exc),
+        ) from exc
+    except ToolValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
+    except (TaskTerminalStateError, ConcurrentExecutionConflictError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
+
+    exec_record = session.scalar(
+        select(TaskExecutionRecord).where(TaskExecutionRecord.id == result.execution_id)
+    )
+    if exec_record is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Execution record was not persisted",
+        )
+    return exec_record
+
+
+@router.get(
+    "/{task_id}/executions",
+    response_model=list[TaskExecutionResponse],
+    summary="Retrieve execution history for a task",
+    description=(
+        "Returns all recorded execution attempts for the given task ordered by creation time."
+    ),
+)
+def get_task_executions_endpoint(
+    task_id: UUID,
+    session: Annotated[Session, Depends(get_db_session)],
+) -> list[TaskExecutionRecord]:
+    """Retrieve execution records for a task."""
+    task = session.scalar(select(TaskRecord).where(TaskRecord.id == task_id))
+    if task is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Task {task_id} not found",
+        )
+    executions = session.scalars(
+        select(TaskExecutionRecord)
+        .where(TaskExecutionRecord.task_id == task_id)
+        .order_by(TaskExecutionRecord.created_at)
+    ).all()
+    return list(executions)

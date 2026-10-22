@@ -18,7 +18,7 @@ Initial API domains, not a promise to implement them all in the first coding pha
 - `/auth`: login/session/logout, session info, MFA status where implemented.
 - `/objectives`: create and inspect founder objectives.
 - `/plans`: view plan versions, acceptance criteria, dependencies, and clarification requests.
-- `/tasks`: canonical task creation, retrieval, and specialist routing (`POST /tasks`, `GET /tasks/{task_id}`, `POST /tasks/{task_id}/route`, and `/api/v1/tasks`). NOTE: in the current phase prior to authentication, `created_by` is caller-supplied metadata and must not be treated as authenticated identity. See `docs/20_WP03B_TASK_API_AND_SUBMISSION.md` and `docs/21_WP03C_AGENT_REGISTRY_AND_ROUTING.md`.
+- `/tasks`: canonical task creation, retrieval, specialist routing, and controlled tool execution (`POST /tasks`, `GET /tasks/{task_id}`, `POST /tasks/{task_id}/route`, `POST /tasks/{task_id}/execute`, `GET /tasks/{task_id}/executions`, and `/api/v1/tasks`). NOTE: in the current phase prior to authentication, `created_by` is caller-supplied metadata and must not be treated as authenticated identity. See `docs/20_WP03B_TASK_API_AND_SUBMISSION.md`, `docs/21_WP03C_AGENT_REGISTRY_AND_ROUTING.md`, and `docs/22_WP04_CONTROLLED_EXECUTION_ENGINE.md`.
 - `/workforce`: list approved capability definitions, inspect status, edit through authorized governance flow.
 - `/approvals`: list, inspect, approve, reject, or request changes to a specific proposal version.
 - `/memory`: search and manage memory within the operator's access scope.

@@ -107,3 +107,46 @@ class TaskRouteResponse(BaseModel):
     task: TaskResponse
     routing_decision: dict[str, Any]
 
+
+class TaskExecuteRequest(BaseModel):
+    """Payload to trigger execution of an approved tool on a task."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    tool_id: str = Field(..., min_length=1, description="Registered tool identifier.")
+    parameters: dict[str, Any] = Field(
+        default_factory=dict, description="Input parameters for the tool."
+    )
+    agent_id: str | None = Field(
+        default=None, description="Optional override/explicit agent ID."
+    )
+    caller: str = Field(
+        default="system",
+        description="Provenance tracking of who triggered execution.",
+    )
+    request_id: str | None = Field(
+        default=None, description="Optional request correlation ID."
+    )
+
+
+class TaskExecutionResponse(BaseModel):
+    """Durable record of a tool execution attempt."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    task_id: UUID
+    agent_id: str
+    tool_id: str
+    risk_tier: str
+    status: str
+    input_parameters: dict[str, Any]
+    output_payload: dict[str, Any]
+    error_message: str | None = None
+    evidence_reference: str | None = None
+    verification_checks: list[dict[str, Any]] = Field(default_factory=list)
+    duration_ms: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+
